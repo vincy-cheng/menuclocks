@@ -1,0 +1,15 @@
+#!/bin/bash
+set -euo pipefail
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$ROOT"
+export CLANG_MODULE_CACHE_PATH="$ROOT/.build/module-cache"
+export SWIFT_MODULECACHE_PATH="$CLANG_MODULE_CACHE_PATH"
+swift build --configuration release --disable-sandbox --cache-path "$ROOT/.build/cache"
+BIN_DIR="$(swift build --configuration release --disable-sandbox --cache-path "$ROOT/.build/cache" --show-bin-path)"
+APP="$ROOT/dist/MenuClocks.app"
+mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
+cp "$BIN_DIR/MenuClocks" "$APP/Contents/MacOS/MenuClocks"
+cp "$ROOT/Resources/Info.plist" "$APP/Contents/Info.plist"
+cp "$ROOT/Resources/AppIcon.icns" "$APP/Contents/Resources/AppIcon.icns"
+codesign --force --sign - "$APP"
+printf '\nBuilt %s\nLaunch with: open "%s"\n' "$APP" "$APP"

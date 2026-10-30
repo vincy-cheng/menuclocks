@@ -1,0 +1,6 @@
+docs/features/
+.dev-flow/
+.build/
+dist/
+.DS_Store
+.swiftpm/
