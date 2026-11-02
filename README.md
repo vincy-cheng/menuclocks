@@ -2,11 +2,22 @@
 
 A small native macOS menu bar world clock, inspired by Clocker. Built with SwiftUI and AppKit, with no external dependencies or network access. This is an independent implementation, not Clocker's source or branding.
 
-## Launch
+## Build and launch
 
-Open `dist/MenuClocks.app`. It lives in the menu bar and does not show a Dock icon. Click its clocks (or globe icon) to open the panel. To install, drag the app to Applications; it can also run from this folder.
+Requires macOS 13 or newer and Xcode with Swift 6 or newer. Clone the source and build the app locally:
 
-The included app was built for Apple Silicon. Rebuild on an Intel Mac to produce an Intel version. Requires macOS 13 or newer; building requires Xcode with Swift 6 or newer.
+```sh
+git clone https://github.com/vincy-cheng/menuclocks.git
+cd menuclocks
+./scripts/build.sh
+open dist/MenuClocks.app
+```
+
+If you already have the source (including through the `useless-gadgets` submodule), run the last two commands from the MenuClocks folder.
+
+The build produces an app for your Mac's architecture. Build outputs are not included in the repository. The app lives in the menu bar and does not show a Dock icon. Click its clocks (or globe icon) to open the panel. To install, drag `dist/MenuClocks.app` to Applications; it can also run from the build folder.
+
+The app is locally ad-hoc signed and is not notarized for distribution.
 
 ## Use
 
@@ -22,18 +33,20 @@ Clocks, pinning, labels, order, and time format are saved automatically in macOS
 
 To start automatically, add the app in **System Settings → General → Login Items**.
 
-## Build and test
+## Test
 
 ```sh
-./scripts/build.sh
 swift test
-open dist/MenuClocks.app
 ```
 
-The build script produces an optimized, locally ad-hoc-signed app. It is not notarized for distribution. The automated tests cover time formatting, DST transitions, date-line/year boundaries, fractional UTC offsets, search, custom-label fallback, and menu bar overflow.
+The automated tests cover time formatting, DST transitions, date-line/year boundaries, fractional UTC offsets, search, custom-label fallback, and menu bar overflow.
 
 ## Scope
 
 Included: offline world clocks, menu bar pinning, custom labels, ordering, date/UTC offsets, time preview, clipboard copy, saved preferences, and system light/dark appearance.
 
 Not included: calendar integrations, reminders, geographic street search, widgets, or Clocker's other advanced features.
+
+## License
+
+[MIT](LICENSE)
