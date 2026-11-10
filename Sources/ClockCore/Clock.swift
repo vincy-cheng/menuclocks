@@ -36,11 +36,23 @@ public struct Clock: Codable, Identifiable, Equatable, Sendable {
         switch menuBarNameMode {
         case .fullName: return name
         case .abbreviation:
-            return zone.abbreviation(for: date).flatMap { $0.isEmpty ? nil : $0 } ?? name
+            return abbreviation(at: date).flatMap { $0.isEmpty ? nil : $0 } ?? name
         case .custom:
             let trimmed = shortName.trimmingCharacters(in: .whitespacesAndNewlines)
             return trimmed.isEmpty ? name : trimmed
         }
+    }
+
+    public func abbreviation(at date: Date) -> String? {
+        let locale: Locale
+        switch id {
+        // Generic system abbreviations use GMT offsets for these zones.
+        case "Asia/Hong_Kong", "Hongkong": locale = Locale(identifier: "en_HK")
+        case "Asia/Tokyo", "Japan": locale = Locale(identifier: "en_JP")
+        default: return zone.abbreviation(for: date)
+        }
+        let style: TimeZone.NameStyle = zone.isDaylightSavingTime(for: date) ? .shortDaylightSaving : .shortStandard
+        return zone.localizedName(for: style, locale: locale) ?? zone.abbreviation(for: date)
     }
 
     public var zone: TimeZone { TimeZone(identifier: id) ?? .gmt }

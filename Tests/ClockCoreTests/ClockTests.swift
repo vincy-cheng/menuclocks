@@ -101,4 +101,14 @@ final class ClockTests: XCTestCase {
         XCTAssertEqual(Clock.menuBarTitle(clocks: [], at: instant, use24Hour: true), "")
     }
 
+    func testHongKongAndJapanUseLetterAbbreviationsInMenuBar() {
+        for instant in [date("2026-01-01T00:00:00Z"), date("2026-07-01T00:00:00Z")] {
+            for (identifier, expected) in [("Asia/Hong_Kong", "HKT"), ("Hongkong", "HKT"), ("Asia/Tokyo", "JST"), ("Japan", "JST")] {
+                let clock = Clock(id: identifier, pinned: true, menuBarNameMode: .abbreviation)
+                XCTAssertEqual(clock.menuBarName(at: instant), expected, identifier)
+                XCTAssertEqual(Clock.menuBarEntries(clocks: [clock], at: instant, use24Hour: true).first?.name, expected)
+            }
+        }
+    }
+
 }

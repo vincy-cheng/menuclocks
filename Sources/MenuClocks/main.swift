@@ -134,7 +134,7 @@ struct ClockPanel: View {
                     .accessibilityLabel(clock.isDaytime(at: date) ? "Daytime" : "Nighttime")
                 VStack(alignment: .leading, spacing: 5) {
                     Text(clock.name).font(.system(size: 14, weight: .semibold)).lineLimit(1)
-                    Text("\(clock.zone.abbreviation(for: date) ?? clock.id) · \(clock.offset(at: date))")
+                    Text("\(clock.abbreviation(at: date) ?? clock.id) · \(clock.offset(at: date))")
                         .font(.system(size: 10)).foregroundStyle(.secondary)
                 }
                 Spacer(minLength: 4)
