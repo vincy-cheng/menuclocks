@@ -7,6 +7,7 @@ import ClockCore
 final class ClockStore: ObservableObject {
     @Published var clocks: [Clock] { didSet { save() } }
     @Published var use24Hour: Bool { didSet { UserDefaults.standard.set(use24Hour, forKey: "use24Hour") } }
+    @Published var twoLineMenuBar: Bool { didSet { UserDefaults.standard.set(twoLineMenuBar, forKey: "twoLineMenuBar") } }
     @Published var now = Date()
     @Published var previewHours = 0.0
     private var timer: Timer?
@@ -25,6 +26,7 @@ final class ClockStore: ObservableObject {
                       Clock(id: "America/New_York", pinned: true)]
                 .filter { seen.insert($0.id).inserted }
         }
+        twoLineMenuBar = defaults.object(forKey: "twoLineMenuBar") as? Bool ?? false
         use24Hour = defaults.object(forKey: "use24Hour") as? Bool ?? true
         timer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.now = Date() }
@@ -158,6 +160,18 @@ struct ClockPanel: View {
                     Button { store.clocks.removeAll { $0.id == clock.id } } label: { Image(systemName: "trash") }
                         .help("Remove time zone").accessibilityLabel("Remove \(clock.name)")
                 }.buttonStyle(.borderless)
+                Picker("Menu bar name", selection: binding.menuBarNameMode) {
+                    Text("Full name").tag(Clock.MenuBarNameMode.fullName)
+                    Text("Time zone abbreviation").tag(Clock.MenuBarNameMode.abbreviation)
+                    Text("Custom short name").tag(Clock.MenuBarNameMode.custom)
+                }
+                .font(.system(size: 11))
+                .accessibilityLabel("Menu bar name for \(clock.name)")
+                if clock.menuBarNameMode == .custom {
+                    TextField("Short name, e.g. HK", text: binding.shortName)
+                        .textFieldStyle(.roundedBorder)
+                        .accessibilityLabel("Menu bar short name for \(clock.name)")
+                }
             }
             HStack {
                 if editing { Text(clock.id).font(.system(size: 9)).foregroundStyle(.secondary).lineLimit(1) }
@@ -244,6 +258,8 @@ struct ClockPanel: View {
             } label: { Image(systemName: copied ? "checkmark" : "doc.on.doc") }
                 .help(copied ? "Copied" : "Copy all times").accessibilityLabel("Copy all times")
             Menu {
+                Toggle("Two-line menu bar", isOn: $store.twoLineMenuBar)
+                Divider()
                 Text("MenuClocks 1.0")
                 Text("Menu bar clocks update every 5 seconds.")
                 Divider()
@@ -283,10 +299,49 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
 
     private func updateTitle() {
         let pinned = store.clocks.filter(\.pinned)
-        statusItem.button?.title = Clock.menuBarTitle(clocks: store.clocks, at: store.now, use24Hour: store.use24Hour)
-        statusItem.button?.image = pinned.isEmpty ? NSImage(systemSymbolName: "globe", accessibilityDescription: "MenuClocks") : nil
-        statusItem.button?.toolTip = pinned.isEmpty ? "MenuClocks — click to add time zones" :
+        guard let button = statusItem.button else { return }
+        if pinned.isEmpty {
+            button.title = ""
+            button.image = NSImage(systemSymbolName: "globe", accessibilityDescription: "MenuClocks")
+        } else if store.twoLineMenuBar {
+            button.title = ""
+            button.image = twoLineImage()
+        } else {
+            button.image = nil
+            button.title = Clock.menuBarTitle(clocks: store.clocks, at: store.now, use24Hour: store.use24Hour)
+        }
+        let description = pinned.isEmpty ? "MenuClocks — click to add time zones" :
             pinned.map { "\($0.name): \($0.time(at: store.now, use24Hour: store.use24Hour))" }.joined(separator: "\n")
+        button.toolTip = description
+        button.setAccessibilityLabel("MenuClocks world clocks. \(description)")
+    }
+
+    private func twoLineImage() -> NSImage {
+        let entries = Clock.menuBarEntries(clocks: store.clocks, at: store.now, use24Hour: store.use24Hour)
+        let nameAttributes: [NSAttributedString.Key: Any] = [.font: NSFont.systemFont(ofSize: 9, weight: .medium), .foregroundColor: NSColor.black]
+        let timeAttributes: [NSAttributedString.Key: Any] = [.font: NSFont.monospacedDigitSystemFont(ofSize: 10, weight: .medium), .foregroundColor: NSColor.black]
+        let columns = entries.map {
+            (name: NSAttributedString(string: $0.name, attributes: nameAttributes),
+             time: NSAttributedString(string: $0.time, attributes: timeAttributes))
+        }
+        let widths = columns.map { ceil(max($0.name.size().width, $0.time.size().width)) }
+        let overflow = store.clocks.filter(\.pinned).count - entries.count
+        let suffix = NSAttributedString(string: overflow > 0 ? "+\(overflow)" : "", attributes: timeAttributes)
+        let spacing: CGFloat = 8
+        let width = widths.reduce(0, +) + CGFloat(max(0, columns.count - 1)) * spacing
+            + (overflow > 0 ? spacing + ceil(suffix.size().width) : 0)
+        let image = NSImage(size: NSSize(width: width, height: 22), flipped: false) { _ in
+            var x: CGFloat = 0
+            for (column, width) in zip(columns, widths) {
+                column.name.draw(at: NSPoint(x: x + (width - column.name.size().width) / 2, y: 11))
+                column.time.draw(at: NSPoint(x: x + (width - column.time.size().width) / 2, y: 0))
+                x += width + spacing
+            }
+            if overflow > 0 { suffix.draw(at: NSPoint(x: x, y: (22 - suffix.size().height) / 2)) }
+            return true
+        }
+        image.isTemplate = true
+        return image
     }
 
     @objc private func togglePanel() {

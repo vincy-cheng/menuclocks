@@ -90,12 +90,17 @@ public struct Clock: Codable, Identifiable, Equatable, Sendable {
         return (7..<19).contains(calendar.component(.hour, from: date))
     }
 
+    public static func menuBarEntries(clocks: [Clock], at date: Date, use24Hour: Bool) -> [(name: String, time: String)] {
+        clocks.filter(\.pinned).prefix(2).map {
+            (String($0.menuBarName(at: date).prefix(14)), $0.time(at: date, use24Hour: use24Hour))
+        }
+    }
+
     public static func menuBarTitle(clocks: [Clock], at date: Date, use24Hour: Bool) -> String {
-        let pinned = clocks.filter(\.pinned)
-        let title = pinned.prefix(2).map {
-            "\(String($0.menuBarName(at: date).prefix(14))) \($0.time(at: date, use24Hour: use24Hour))"
-        }.joined(separator: "  ·  ")
-        return title + (pinned.count > 2 ? "  +\(pinned.count - 2)" : "")
+        let title = menuBarEntries(clocks: clocks, at: date, use24Hour: use24Hour)
+            .map { "\($0.name) \($0.time)" }.joined(separator: "  ·  ")
+        let count = clocks.filter(\.pinned).count
+        return title + (count > 2 ? "  +\(count - 2)" : "")
     }
 
     public static func search(_ query: String) -> [String] {

@@ -74,4 +74,31 @@ final class ClockTests: XCTestCase {
         XCTAssertEqual(clock.menuBarName(at: date("2026-03-08T07:30:00Z")), "EDT")
     }
 
+    func testTwoLineEntriesKeepNamesAboveTimesAndLimitPinnedClocks() {
+        let clocks = [Clock(id: "UTC", label: "Hidden")] + [
+            Clock(id: "Asia/Hong_Kong", pinned: true, menuBarNameMode: .custom, shortName: "HK"),
+            Clock(id: "America/New_York", pinned: true, menuBarNameMode: .abbreviation),
+            Clock(id: "UTC", pinned: true)
+        ]
+        let entries = Clock.menuBarEntries(clocks: clocks, at: date("2026-01-01T00:00:00Z"), use24Hour: false)
+        XCTAssertEqual(entries.count, 2)
+        XCTAssertEqual(entries.first?.name, "HK")
+        XCTAssertEqual(entries.first?.time, "8:00 AM")
+        XCTAssertEqual(entries.last?.name, "EST")
+        XCTAssertEqual(entries.last?.time, "7:00 PM")
+        XCTAssertEqual(Clock.menuBarTitle(clocks: clocks, at: date("2026-01-01T00:00:00Z"), use24Hour: false), "HK 8:00 AM  ·  EST 7:00 PM  +1")
+    }
+
+    func testMenuBarEntriesHandleEmptySelectionAnd24HourTime() {
+        let instant = date("2026-01-01T00:00:00Z")
+        XCTAssertTrue(Clock.menuBarEntries(clocks: [], at: instant, use24Hour: true).isEmpty)
+        let clock = Clock(id: "UTC", label: "A very long location", pinned: true)
+        let entries = Clock.menuBarEntries(clocks: [clock], at: instant, use24Hour: true)
+        XCTAssertEqual(entries.count, 1)
+        XCTAssertEqual(entries.first?.name, "A very long lo")
+        XCTAssertEqual(entries.first?.time, "00:00")
+        XCTAssertTrue(Clock.menuBarEntries(clocks: [Clock(id: "UTC")], at: instant, use24Hour: true).isEmpty)
+        XCTAssertEqual(Clock.menuBarTitle(clocks: [], at: instant, use24Hour: true), "")
+    }
+
 }
