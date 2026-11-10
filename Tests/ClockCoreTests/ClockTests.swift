@@ -42,4 +42,36 @@ final class ClockTests: XCTestCase {
         XCTAssertEqual(Clock(id: "America/New_York", label: "  ").name, "New York")
         XCTAssertEqual(Clock(id: "Asia/Tokyo", label: " Team ").name, "Team")
     }
+    func testSavedAbbreviationModeChangesMenuBarName() throws {
+        let data = Data(#"[{"id":"America/New_York","label":"Office","pinned":true,"menuBarNameMode":"abbreviation","shortName":"NY"}]"#.utf8)
+        let clocks = try JSONDecoder().decode([Clock].self, from: data)
+        XCTAssertEqual(Clock.menuBarTitle(clocks: clocks, at: date("2026-01-01T00:00:00Z"), use24Hour: true), "EST 19:00")
+    }
+
+    func testLegacyClockDecodesWithOriginalMenuBarDefaults() throws {
+        let data = Data(#"{"id":"Asia/Hong_Kong","label":"Office","pinned":true}"#.utf8)
+        let clock = try JSONDecoder().decode(Clock.self, from: data)
+        XCTAssertEqual(clock.menuBarNameMode, .fullName)
+        XCTAssertEqual(clock.shortName, "")
+        XCTAssertEqual(clock.menuBarName(at: date("2026-01-01T00:00:00Z")), "Office")
+    }
+
+    func testCustomShortNameDoesNotChangeFullName() throws {
+        var clock = Clock(id: "Asia/Hong_Kong", label: "Office", pinned: true, menuBarNameMode: .custom, shortName: " HK ")
+        let instant = date("2026-01-01T00:00:00Z")
+        XCTAssertEqual(clock.menuBarName(at: instant), "HK")
+        XCTAssertEqual(clock.name, "Office")
+        XCTAssertEqual(try JSONDecoder().decode(Clock.self, from: JSONEncoder().encode(clock)), clock)
+        clock.shortName = " \n "
+        XCTAssertEqual(clock.menuBarName(at: instant), "Office")
+        clock.label = ""
+        XCTAssertEqual(clock.menuBarName(at: instant), "Hong Kong")
+    }
+
+    func testMenuBarAbbreviationTracksDaylightSavingTransition() {
+        let clock = Clock(id: "America/New_York", menuBarNameMode: .abbreviation)
+        XCTAssertEqual(clock.menuBarName(at: date("2026-03-08T06:30:00Z")), "EST")
+        XCTAssertEqual(clock.menuBarName(at: date("2026-03-08T07:30:00Z")), "EDT")
+    }
+
 }

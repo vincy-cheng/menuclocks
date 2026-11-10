@@ -1,14 +1,46 @@
 import Foundation
 
 public struct Clock: Codable, Identifiable, Equatable, Sendable {
+    public enum MenuBarNameMode: String, Codable, CaseIterable, Sendable {
+        case fullName, abbreviation, custom
+    }
+
+    public var menuBarNameMode: MenuBarNameMode
+    public var shortName: String
     public var id: String
     public var label: String
     public var pinned: Bool
 
-    public init(id: String, label: String = "", pinned: Bool = false) {
+    public init(id: String, label: String = "", pinned: Bool = false, menuBarNameMode: MenuBarNameMode = .fullName, shortName: String = "") {
+        self.menuBarNameMode = menuBarNameMode
+        self.shortName = shortName
         self.id = id
         self.label = label
         self.pinned = pinned
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, label, pinned, menuBarNameMode, shortName
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        id = try values.decode(String.self, forKey: .id)
+        label = try values.decode(String.self, forKey: .label)
+        pinned = try values.decode(Bool.self, forKey: .pinned)
+        menuBarNameMode = try values.decodeIfPresent(MenuBarNameMode.self, forKey: .menuBarNameMode) ?? .fullName
+        shortName = try values.decodeIfPresent(String.self, forKey: .shortName) ?? ""
+    }
+
+    public func menuBarName(at date: Date) -> String {
+        switch menuBarNameMode {
+        case .fullName: return name
+        case .abbreviation:
+            return zone.abbreviation(for: date).flatMap { $0.isEmpty ? nil : $0 } ?? name
+        case .custom:
+            let trimmed = shortName.trimmingCharacters(in: .whitespacesAndNewlines)
+            return trimmed.isEmpty ? name : trimmed
+        }
     }
 
     public var zone: TimeZone { TimeZone(identifier: id) ?? .gmt }
@@ -61,7 +93,7 @@ public struct Clock: Codable, Identifiable, Equatable, Sendable {
     public static func menuBarTitle(clocks: [Clock], at date: Date, use24Hour: Bool) -> String {
         let pinned = clocks.filter(\.pinned)
         let title = pinned.prefix(2).map {
-            "\(String($0.name.prefix(14))) \($0.time(at: date, use24Hour: use24Hour))"
+            "\(String($0.menuBarName(at: date).prefix(14))) \($0.time(at: date, use24Hour: use24Hour))"
         }.joined(separator: "  ·  ")
         return title + (pinned.count > 2 ? "  +\(pinned.count - 2)" : "")
     }
