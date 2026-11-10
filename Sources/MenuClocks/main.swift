@@ -262,9 +262,6 @@ struct ClockPanel: View {
                 Divider()
                 Text("MenuClocks 1.0")
                 Text("Menu bar clocks update every 5 seconds.")
-                Divider()
-                Button("Quit MenuClocks") { NSApplication.shared.terminate(nil) }
-                    .keyboardShortcut("q")
             } label: { Image(systemName: "ellipsis.circle") }
                 .menuStyle(.borderlessButton).fixedSize().help("More options")
                 .accessibilityLabel("More options")
@@ -279,13 +276,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     private let popover = NSPopover()
     private var updates = Set<AnyCancellable>()
     private(set) var outsideClickMonitor: Any?
+    let statusMenu: NSMenu = {
+        let menu = NSMenu()
+        let quit = NSMenuItem(title: "Quit MenuClocks", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        quit.target = NSApplication.shared
+        menu.addItem(quit)
+        return menu
+    }()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         if let button = statusItem.button {
             button.target = self
-            button.action = #selector(togglePanel)
+            button.action = #selector(statusItemClicked)
+            button.sendAction(on: [.leftMouseUp, .rightMouseUp])
             button.font = .monospacedDigitSystemFont(ofSize: 12, weight: .medium)
             button.setAccessibilityLabel("MenuClocks world clocks")
         }
@@ -345,7 +350,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         return image
     }
 
-    @objc private func togglePanel() {
+    @objc private func statusItemClicked() {
+        guard let button = statusItem.button else { return }
+        let event = NSApp.currentEvent
+        if event?.type == .rightMouseUp || event?.modifierFlags.contains(.control) == true {
+            popover.performClose(nil)
+            statusMenu.popUp(positioning: nil, at: NSPoint(x: 0, y: button.bounds.minY), in: button)
+        } else {
+            togglePanel()
+        }
+    }
+
+    private func togglePanel() {
         guard let button = statusItem.button else { return }
         if popover.isShown {
             popover.performClose(nil)

@@ -27,4 +27,16 @@ final class PopoverDismissalTests: XCTestCase {
         XCTAssertTrue(firstMonitor === (delegate.outsideClickMonitor as AnyObject?))
         delegate.popoverDidClose(Notification(name: NSPopover.didCloseNotification))
     }
+    @MainActor
+    func testStatusItemContextMenuOffersQuitApplication() throws {
+        let app = NSApplication.shared
+        let delegate = AppDelegate()
+        let item = try XCTUnwrap(delegate.statusMenu.items.first)
+        XCTAssertEqual(delegate.statusMenu.items.count, 1)
+        XCTAssertEqual(item.title, "Quit MenuClocks")
+        XCTAssertEqual(item.action, #selector(NSApplication.terminate(_:)))
+        XCTAssertTrue(item.target === app)
+        XCTAssertEqual(item.keyEquivalent, "q")
+    }
+
 }
