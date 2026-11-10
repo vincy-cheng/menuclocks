@@ -1,14 +1,58 @@
 import Foundation
 
 public struct Clock: Codable, Identifiable, Equatable, Sendable {
+    public enum MenuBarNameMode: String, Codable, CaseIterable, Sendable {
+        case fullName, abbreviation, custom
+    }
+
+    public var menuBarNameMode: MenuBarNameMode
+    public var shortName: String
     public var id: String
     public var label: String
     public var pinned: Bool
 
-    public init(id: String, label: String = "", pinned: Bool = false) {
+    public init(id: String, label: String = "", pinned: Bool = false, menuBarNameMode: MenuBarNameMode = .fullName, shortName: String = "") {
+        self.menuBarNameMode = menuBarNameMode
+        self.shortName = shortName
         self.id = id
         self.label = label
         self.pinned = pinned
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, label, pinned, menuBarNameMode, shortName
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        id = try values.decode(String.self, forKey: .id)
+        label = try values.decode(String.self, forKey: .label)
+        pinned = try values.decode(Bool.self, forKey: .pinned)
+        menuBarNameMode = try values.decodeIfPresent(MenuBarNameMode.self, forKey: .menuBarNameMode) ?? .fullName
+        shortName = try values.decodeIfPresent(String.self, forKey: .shortName) ?? ""
+    }
+
+    public func menuBarName(at date: Date) -> String {
+        switch menuBarNameMode {
+        case .fullName: return name
+        case .abbreviation:
+            return abbreviation(at: date).flatMap { $0.isEmpty ? nil : $0 } ?? name
+        case .custom:
+            let trimmed = shortName.trimmingCharacters(in: .whitespacesAndNewlines)
+            return trimmed.isEmpty ? name : trimmed
+        }
+    }
+
+    public func abbreviation(at date: Date) -> String? {
+        let locale: Locale
+        switch id {
+        // Generic system abbreviations use GMT offsets for these zones.
+        case "Asia/Hong_Kong", "Hongkong": locale = Locale(identifier: "en_HK")
+        case "Asia/Tokyo", "Japan": locale = Locale(identifier: "en_JP")
+        default: return zone.abbreviation(for: date)
+        }
+        let style: TimeZone.NameStyle = zone.isDaylightSavingTime(for: date) ? .shortDaylightSaving : .shortStandard
+        return zone.localizedName(for: style, locale: locale) ?? zone.abbreviation(for: date)
     }
 
     public var zone: TimeZone { TimeZone(identifier: id) ?? .gmt }
@@ -58,12 +102,17 @@ public struct Clock: Codable, Identifiable, Equatable, Sendable {
         return (7..<19).contains(calendar.component(.hour, from: date))
     }
 
+    public static func menuBarEntries(clocks: [Clock], at date: Date, use24Hour: Bool) -> [(name: String, time: String)] {
+        clocks.filter(\.pinned).prefix(2).map {
+            (String($0.menuBarName(at: date).prefix(14)), $0.time(at: date, use24Hour: use24Hour))
+        }
+    }
+
     public static func menuBarTitle(clocks: [Clock], at date: Date, use24Hour: Bool) -> String {
-        let pinned = clocks.filter(\.pinned)
-        let title = pinned.prefix(2).map {
-            "\(String($0.name.prefix(14))) \($0.time(at: date, use24Hour: use24Hour))"
-        }.joined(separator: "  ·  ")
-        return title + (pinned.count > 2 ? "  +\(pinned.count - 2)" : "")
+        let title = menuBarEntries(clocks: clocks, at: date, use24Hour: use24Hour)
+            .map { "\($0.name) \($0.time)" }.joined(separator: "  ·  ")
+        let count = clocks.filter(\.pinned).count
+        return title + (count > 2 ? "  +\(count - 2)" : "")
     }
 
     public static func search(_ query: String) -> [String] {
